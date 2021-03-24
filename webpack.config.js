@@ -1,19 +1,23 @@
 'use strict';
+
 var path = require('path');
 
-const HtmlWebpackPlugin = require('html-webpack-plugin');
+var plugins = require('./webpack/plugins');
 
 var rules = [
   require('./webpack/loaders/glsl'),
   require('./webpack/loaders/html'),
+  require('./webpack/loaders/babel'),
+  require('./webpack/loaders/css'),
+  require('./webpack/loaders/image'),
 ];
 
 module.exports = {
-  mode: 'development',
+  mode: 'production',
   entry: './src/js/main.js',
   output: {
     path: path.resolve(__dirname, './dist'),
-    filename: 'index_bundle.js',
+    filename: 'bundle.js',
   },
   module: {
     rules
@@ -25,8 +29,12 @@ module.exports = {
     ],
     alias: {
       shaders: path.resolve(__dirname, 'src/shaders'),
+      js: path.resolve(__dirname, 'src/js'),
+      css: path.resolve(__dirname, 'src/css'),
     },
   },
-  devServer: {},
-  plugins: [new HtmlWebpackPlugin()],
+  devServer: {
+    contentBase: path.resolve(__dirname, './dist')
+  },
+  plugins: plugins,
 };
