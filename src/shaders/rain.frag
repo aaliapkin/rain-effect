@@ -6,11 +6,14 @@ precision highp float;
 
 out vec4 FragColor;
 in vec2 uv;
+in vec2 mouse;
 
 uniform vec4 u_bounds;
 uniform float u_time;
 uniform float u_Size;
 uniform sampler2D u_Sampler;
+uniform float u_MouseInt;
+uniform float u_asp;
 
 float map(float value, float min1, float max1, float min2, float max2) {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
@@ -25,7 +28,7 @@ float N21(vec2 p) {
 vec3 Layer(vec2 UV, float t) {
   
   vec2 asp = vec2(2.0f, 1.0f); // y: 2, x: 1
-  vec2 uv1 = UV * u_Size * asp;
+  vec2 uv1 = UV * u_Size * asp * vec2(u_asp, 1.0f);
   uv1.y = -uv1.y;
   uv1.y += t * .25f;
   vec2 gv = fract(uv1) - .5f;
@@ -45,8 +48,8 @@ vec3 Layer(vec2 UV, float t) {
   float drop = S(.035f, .025f, length(dropPos));
 
   vec2 trailPos = (gv - vec2(x, t * .25f)) / asp;
-  trailPos.y = (fract(trailPos.y * 16.0f) - 0.5f) / 16.0f;
-  float trail = S(.03f, .001f, length(trailPos)) * .4f;
+  trailPos.y = (fract(trailPos.y * 32.0f) - 0.5f) / 32.0f;
+  float trail = S(.03f, .001f, length(trailPos)) * .8f;
   float fogTrail = S(-.1f, .1f, dropPos.y);
   fogTrail *= S(.5f, y, gv.y);
   trail *= fogTrail;
@@ -62,14 +65,25 @@ vec3 Layer(vec2 UV, float t) {
 void main()
 {
   float Pi = 6.28318530718;
+  vec2 asp = vec2(u_asp, 1.0f);
+
+  float imgasp = u_asp / 1.4f; // image aspect ratio
+  vec2 sampleuv;
+  if (imgasp > 1.0f) { 
+    sampleuv = (uv - vec2(0.5f)) * vec2(1.0f, 1.0f / imgasp) + vec2(0.5f);
+  } else {
+    sampleuv = (uv - vec2(0.5f)) * vec2(imgasp, 1.0f) + vec2(0.5f);
+  }
+
+  vec2 uv1 = uv * asp;
 
   FragColor = vec4(0.0f);
+  // cycle time to avoid precision drop
   float t = mod(u_time, 72000.0f);
-  vec2 uv1 = uv + vec2(0.5f, 0.5f);
 
-  vec3 drops = Layer(uv, t);
-  drops += Layer(uv * 1.73f + 1.75f, t + 1.87);
-  drops += Layer(uv * 1.13f + 7.03f, t + 3.31);
+  vec3 drops = Layer(uv1, t);
+  drops += Layer(uv1 * 1.73f + 1.75f, t + 1.87);
+  drops += Layer(uv1 * 1.13f + 7.03f, t + 3.31);
 
   float blur = (1.0f - drops.z);
   
@@ -78,19 +92,24 @@ void main()
   float Size = 2.0;
   vec2 Radius = vec2(.02f);
 
-  vec2 uvoff = uv1 + drops.xy;
-  vec4 Color = texture(u_Sampler, uv1, 4.0f);
+  vec2 uvoff = sampleuv + drops.xy;
+  vec4 Color = texture(u_Sampler, sampleuv, 4.0f);
 
   for(float d = 0.0; d < Pi; d += Pi/Directions) {
     for(float i = 1.0 / Quality; i <= 1.0; i += 1.0 / Quality) {
-      Color += texture(u_Sampler, uv1 + vec2(cos(d), sin(d)) * Radius * i, 4.0f);		
+      Color += texture(u_Sampler, sampleuv + vec2(cos(d), sin(d)) * Radius * i, 4.0f);		
     }
   }
 
+  float mouseCircle = S(0.3f, 0.1f, length((mouse - uv) * asp)) * u_MouseInt;
+  blur *= (1.0f - mouseCircle);
+
   Color /= Quality * Directions;
   vec4 BaseColor = texture(u_Sampler, uvoff);
-  FragColor = mix(BaseColor, Color * .5f, blur);
+  FragColor = mix(BaseColor, Color, blur) * 0.7f;
 
-  // FragColor = BaseColor;
-  // FragColor = vec4(1.0f) * drops.x;
+  // vec4 Color = texture(u_Sampler, sampleuv);
+  // FragColor = Color;
+  // FragColor = vec4(1.0f) * mouseCircle;
+  // FragColor = vec4(sampleuv, 0.0f, 1.0f);
 }

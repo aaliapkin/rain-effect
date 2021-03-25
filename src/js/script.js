@@ -1,10 +1,10 @@
 "use strict";
 
-import vertexShaderSource from 'shaders/rain.vert';
-import fragmentShaderSource from 'shaders/rain.frag';
+import vertexShaderSource from "shaders/rain.vert";
+import fragmentShaderSource from "shaders/rain.frag";
 
 const config = {
-  shut: false,
+  shut: true,
 };
 
 function hexToRgb(hex) {
@@ -213,10 +213,20 @@ class Animation {
   zoom = true;
   zoomInterval = undefined;
   interval = 50;
-  psize = 10.0;
+  psize = 5.0;
   startTime = 0.0;
   time = 0.0;
   texture = null;
+
+  uvmouse = {
+    x: 0.0,
+    y: 0.0,
+  };
+  lastmousepos = {
+    x: 0.0,
+    y: 0.0,
+  };
+  mouseintensity = 0.0;
 
   // Uniforms
 
@@ -225,6 +235,9 @@ class Animation {
   u_time = null;
   u_Size = null;
   u_Sampler = null;
+  u_Mouse = null;
+  u_MouseInt = null;
+  u_asp = null;
 
   init() {
     this.createCanvas();
@@ -233,30 +246,23 @@ class Animation {
 
   calculateMVP() {
     let left, right, top, bottom, far, near;
-    const ratio = this.size.h / this.size.w;
+    const ratio = this.size.w / this.size.h;
+
     left = 0;
     right = 1;
-    bottom = ratio;
+
+    bottom = 1;
     top = 0;
-    near = -1.0;
+
+    near = 0.0;
     far = 1.0;
-    this.proj = [
-      2 / (right - left),
-      0,
-      0,
-      -(right + left) / (right - left),
-      0,
-      2 / (top - bottom),
-      0,
-      -(top + bottom) / (top - bottom),
-      0,
-      0,
-      2 / (far - near),
-      -(far + near) / (far - near),
-      0,
-      0,
-      0,
-      1,
+
+    // prettier-ignore
+    this.proj = [ 
+      2 / (right - left),                   0,                 0,  -(right + left) / (right - left),
+                       0,  2 / (top - bottom),                 0,  -(top + bottom) / (top - bottom),
+                       0,                   0,  2 / (far - near),      -(far + near) / (far - near),
+                       0,                   0,                 0,                                 1,
     ];
   }
 
@@ -270,14 +276,8 @@ class Animation {
     const vertShader = gl.createShader(gl.VERTEX_SHADER);
     const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
 
-    const vertSrc = gl.shaderSource(
-      vertShader,
-      vertexShaderSource
-    );
-    const fragSrc = gl.shaderSource(
-      fragShader,
-      fragmentShaderSource
-    );
+    const vertSrc = gl.shaderSource(vertShader, vertexShaderSource);
+    const fragSrc = gl.shaderSource(fragShader, fragmentShaderSource);
 
     gl.compileShader(vertShader, vertSrc);
     if (!gl.getShaderParameter(vertShader, gl.COMPILE_STATUS)) {
@@ -306,12 +306,25 @@ class Animation {
 
     const vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    const positions = [-1.1, -1.1, 1.0, -1.1, 1.0, 1.0, -1.0, 1.0];
+
+    // prettier-ignore
+    const positions = [
+      -1.0, -1.0, 
+       1.0, -1.0, 
+       1.0,  1.0, 
+      -1.0,  1.0
+    ];
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
     const indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    const indices = [0, 1, 2, 2, 3, 0];
+
+    // prettier-ignore
+    const indices = [
+      0, 1, 2, 
+      2, 3, 0
+    ];
+
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
       new Uint16Array(indices),
@@ -327,6 +340,9 @@ class Animation {
     this.u_time = gl.getUniformLocation(program, "u_time");
     this.u_Size = gl.getUniformLocation(program, "u_Size");
     this.u_Sampler = gl.getUniformLocation(program, "u_Sampler");
+    this.u_Mouse = gl.getUniformLocation(program, "u_Mouse");
+    this.u_MouseInt = gl.getUniformLocation(program, "u_MouseInt");
+    this.u_asp = gl.getUniformLocation(program, "u_asp");
 
     this.setCanvasSize();
     window.addEventListener(`resize`, () => {
@@ -354,6 +370,37 @@ class Animation {
     this.ctx.viewport(0, 0, this.size.w, this.size.h);
   }
 
+  getMouse() {
+    let x = mouse.x;
+    let y = mouse.y;
+
+    // console.log(this.mouseintensity);
+
+    if (isFinite(x) && isFinite(y)) {
+      this.uvmouse = {
+        x: mapclamp(x, 0, this.size.w, 0, 1),
+        y: mapclamp(y, 0, this.size.h, 0, 1),
+      };
+
+      const dx = x - this.lastmousepos.x;
+      const dy = y - this.lastmousepos.y;
+      const d = dx * dx + dy * dy;
+
+      this.lastmousepos = {
+        ...{ x, y },
+      };
+
+      if (d > 0) {
+        console.log(Math.floor(d));
+        this.mouseintensity -= mapclamp(d, 0, 2000, 0.0, 0.1);
+        this.mouseintensity = this.mouseintensity < 0 ? 0 : this.mouseintensity;
+        return;
+      }
+    }
+    this.mouseintensity += 0.01;
+    this.mouseintensity = this.mouseintensity > 1 ? 1 : this.mouseintensity;
+  }
+
   updateCanvas() {
     const gl = this.ctx;
 
@@ -366,6 +413,11 @@ class Animation {
     gl.uniform1f(this.u_time, this.time);
     gl.uniform1f(this.u_Size, this.psize);
 
+    this.getMouse();
+    gl.uniform2f(this.u_Mouse, this.uvmouse.x, this.uvmouse.y);
+    gl.uniform1f(this.u_MouseInt, this.mouseintensity);
+
+    gl.uniform1f(this.u_asp, this.size.w / this.size.h);
     gl.uniform1i(this.u_Sampler, 0);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
