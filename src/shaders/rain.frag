@@ -25,7 +25,7 @@ float N21(vec2 p) {
   return fract(p.x * p.y);      
 }
 
-vec3 Layer(vec2 UV, float t) {
+vec3 Layer(vec2 UV, vec2 mouse_offset, float t) {
   
   vec2 asp = vec2(2.0f, 1.0f); // y: 2, x: 1
   vec2 uv1 = UV * u_Size * asp * vec2(u_asp, 1.0f);
@@ -44,7 +44,7 @@ vec3 Layer(vec2 UV, float t) {
   float y = -sin(t + sin(t + sin(t) * .5f)) * .45f;
   y -= (gv.x - x) * (gv.x - x);
 
-  vec2 dropPos = (gv - vec2(x, y)) / asp;
+  vec2 dropPos = (gv - vec2(x, y)) / asp + mouse_offset;
   float drop = S(.035f, .025f, length(dropPos));
 
   vec2 trailPos = (gv - vec2(x, t * .25f)) / asp;
@@ -81,9 +81,11 @@ void main()
   // cycle time to avoid precision drop
   float t = mod(u_time, 72000.0f);
 
-  vec3 drops = Layer(uv1, t);
-  drops += Layer(uv1 * 1.73f + 1.75f, t + 1.87);
-  drops += Layer(uv1 * 1.13f + 7.03f, t + 3.31);
+  vec2 mouse_offset = (mouse - uv) * S(0.3f, 0.1f, length(mouse - uv));
+
+  vec3 drops = Layer(uv1, mouse_offset, t);
+  drops += Layer(uv1 * 1.73f + 1.75f, mouse_offset, t + 1.87);
+  drops += Layer(uv1 * 1.13f + 7.03f, mouse_offset, t + 3.31);
 
   float blur = (1.0f - drops.z);
   
