@@ -10,7 +10,7 @@
     git config --global alias.ll "log -n2"
     git config --global alias.cm "!git add -A && git commit -m"
     git config --global alias.co checkout
-    git config --global alias.cm "!git add '.' && git status && git commit -m"
+    git config --global alias.cm "!git add '.' && git status && git commit"
     git config --global alias.cam "!git add '.' && git status && git commit --amend --no-edit"
     
     git config --global alias.wip "!git add '.' && git status && git commit -m 'WIP'"
