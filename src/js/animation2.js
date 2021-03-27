@@ -1,6 +1,7 @@
 import mouse from "js/mouse";
 import { mapclamp } from "js/lib";
-import Shader from "js/Shader";
+import Shader from "js/shader";
+import Texture from "js/texture";
 
 import vertexShaderSource1 from "shaders/rain.vert";
 import fragmentShaderSource1 from "shaders/heatmap.frag";
@@ -39,19 +40,9 @@ function mapArrValue(arr, val, max) {
   return ret;
 }
 
-//
-// Initialize a texture and load an image.
-// When the image finished loading copy it into the texture.
-//
 function loadTexture(gl, url) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
-
-  // Because images have to be downloaded over the internet
-  // they might take a moment until they are ready.
-  // Until then put a single pixel in the texture so we can
-  // use it immediately. When the image has finished downloading
-  // we'll update the texture with the contents of the image.
   const level = 0;
   const internalFormat = gl.RGBA;
   const width = 1;
@@ -90,21 +81,6 @@ function loadTexture(gl, url) {
       gl.TEXTURE_MIN_FILTER,
       gl.LINEAR_MIPMAP_LINEAR
     );
-
-    // WebGL1 has different requirements for power of 2 images
-    // vs non power of 2 images so check if the image is a
-    // power of 2 in both dimensions.
-    // if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-    //   // Yes, it's a power of 2. Generate mips.
-    //   gl.generateMipmap(gl.TEXTURE_2D);
-    // } else {
-    //   // No, it's not a power of 2. Turn off mips and set
-    //   // wrapping to clamp to edge
-    //   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    //   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    //   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    //   gl.generateMipmap(gl.TEXTURE_2D);
-    // }
   };
   image.src = url;
 
@@ -261,52 +237,54 @@ class Animation {
 
     this.startTime = Date.now();
 
-    this.texture = loadTexture(gl, "img/bg1.jpg");
+    this.texture = new Texture(gl).fromUrl("img/bg1.jpg");
 
-    // this.texture2 = gl.createTexture();
-    // gl.bindTexture(gl.TEXTURE_2D, this.texture2);
+    // this.texture = loadTexture(gl, "img/bg1.jpg");
 
-    // // gl.getTexParameter(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER);
-    // const level = 0;
-    // const internalFormat = gl.RGBA;
-    // const border = 0;
-    // const format = gl.RGBA;
-    // const type = gl.UNSIGNED_BYTE;
-    // const data = null;
+    this.texture2 = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.texture2);
 
-    // this.targetTextureWidth = 256;
-    // this.targetTextureHeight = 256;
+    // gl.getTexParameter(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER);
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const border = 0;
+    const format = gl.RGBA;
+    const type = gl.UNSIGNED_BYTE;
+    const data = null;
 
-    // gl.texImage2D(
-    //   gl.TEXTURE_2D,
-    //   level,
-    //   internalFormat,
-    //   this.targetTextureWidth,
-    //   this.targetTextureHeight,
-    //   border,
-    //   format,
-    //   type,
-    //   data
-    // );
+    this.targetTextureWidth = 256;
+    this.targetTextureHeight = 256;
 
-    // // set the filtering so we don't need mips
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      level,
+      internalFormat,
+      this.targetTextureWidth,
+      this.targetTextureHeight,
+      border,
+      format,
+      type,
+      data
+    );
 
-    // // Create and bind the framebuffer
-    // this.frameBuffer = gl.createFramebuffer();
-    // gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    // set the filtering so we don't need mips
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    // // attach the texture as the first color attachment
-    // const attachmentPoint = gl.COLOR_ATTACHMENT0;
-    // gl.framebufferTexture2D(
-    //   gl.FRAMEBUFFER,
-    //   attachmentPoint,
-    //   gl.TEXTURE_2D,
-    //   this.texture2,
-    //   level
-    // );
+    // Create and bind the framebuffer
+    this.frameBuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+
+    // attach the texture as the first color attachment
+    const attachmentPoint = gl.COLOR_ATTACHMENT0;
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      attachmentPoint,
+      gl.TEXTURE_2D,
+      this.texture2,
+      level
+    );
   }
 
   updateCanvas() {
@@ -315,12 +293,13 @@ class Animation {
     this.calculateMVP();
     this.getMouse();
 
-    // this.drawHeatMap();
+    this.drawHeatMap();
     this.drawImage();
   }
 
   drawImage() {
     const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     this.rainShader.useProgram();
     this.rainShader.setUniform("u_MVP", this.proj);
@@ -344,14 +323,13 @@ class Animation {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
 
-    gl.bindTexture(gl.TEXTURE_2D, this.texture2);
+    this.heatmapShader.useProgram();
+    this.heatmapShader.setUniform("u_Mouse2", this.uvmouse.x, this.uvmouse.y);
+
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    // this.heatmapShader.setUniform("u_Sampler2", 0);
 
     gl.viewport(0, 0, this.targetTextureWidth, this.targetTextureHeight);
-
-    gl.useProgram(this.program1);
-
-    gl.uniform1i(this.u_Sampler2, 0);
-    gl.uniform2f(this.u_Mouse2, this.uvmouse.x, this.uvmouse.y);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
