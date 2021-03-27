@@ -1,5 +1,3 @@
-"use strict";
-
 import mouse from "js/mouse";
 import { mapclamp } from "js/lib";
 
@@ -210,12 +208,8 @@ class Animation {
     ];
   }
 
-  createCanvas() {
-    this.cnv = document.createElement(`canvas`);
-    document.body.appendChild(this.cnv);
-    this.cnv.id = "canvas";
-
-    const gl = (this.ctx = this.cnv.getContext("webgl2"));
+  createProgram() {
+    gl = this.ctx;
 
     const vertShader = gl.createShader(gl.VERTEX_SHADER);
     const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -245,7 +239,17 @@ class Animation {
       console.log("Error validating program ", gl.getProgramInfoLog(program));
       return;
     }
+    return program;
+  }
 
+  createCanvas() {
+    this.cnv = document.createElement(`canvas`);
+    document.body.appendChild(this.cnv);
+    this.cnv.id = "canvas";
+
+    const gl = (this.ctx = this.cnv.getContext("webgl2"));
+
+    const program = this.createProgram();
     gl.useProgram(program);
 
     const vertexBuffer = gl.createBuffer();

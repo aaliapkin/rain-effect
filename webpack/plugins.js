@@ -24,7 +24,7 @@ module.exports = [
   }),
   new MiniCssExtractPlugin(),
   new CleanWebpackPlugin(),
-  new ErrorOverlayPlugin(),
+  // new ErrorOverlayPlugin(),
   new ImageMinimizerPlugin({
     minimizerOptions: {
       plugins: [
