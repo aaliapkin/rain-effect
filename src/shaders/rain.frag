@@ -34,25 +34,24 @@ void main()
     sampleuv = (uv - vec2(0.5)) * vec2(imgasp, 1.0) + vec2(0.5);
   }
 
-  float divide = 30.0f;
+  float divide = 15.0f;
   vec2 uv1 = uv * divide;
   vec2 id = floor(uv1);
 
   float n = N21(id);
   float n1 = N21(id + vec2(7.0, 23.0));
 
-  t = t * n * .2 + n * .3;
-  // (abs(sin(7*t + sin(2.1*t - sin(7.17*t))))-.75)*4
-  float y = clamp((-(abs(sin(7.0 * t + sin(2.1 * n - sin(7.17 * t))))) + 0.1) * 10.0, 0.0, 1.0);
-  n *= sin(y) * sin(y + 13.0);
-  //n1 *= sin(y + 13.0);
+  t = t * n * .05 + n * .3;
+  float shit = abs(sin(7.0 * t + sin(2.1 * n - sin(7.17 * t))));
+  n *= clamp((-(shit) + 0.1) * 10.0, 0.0, 1.0);
+  n1 *= clamp((-(shit -7.0) + 0.1) * 10.0, 0.0, 1.0);
   
   float mouseCircle = S(divide/2.0f, divide/5.0f, length((mouse * divide - id) * asp)) ;
 
   // n = n * mouseCircle;
-  n1 = n1 * mouseCircle;
+  // n1 = n1 * mouseCircle;
   
-  vec2 offs = vec2(1.0 / divide) * clamp(floor(10.0 * n), -1.0, 1.0);
+  vec2 offs = vec2(1.0 / divide) * clamp(floor(5.0 * n), -1.0, 1.0);
   vec4 Color = texture(u_Sampler, sampleuv + offs);
 
   
@@ -71,13 +70,13 @@ void main()
   }
   BlurColor /= Quality * Directions;
 
-  // try screen
-  // FragColor = vec4(blendScreen(BlurColor.xyz, Color.xyz, n), 1.0);
+  // try screen, screen suck
+  // FragColor = vec4(blendScreen(Color.xyz, BlurColor.xyz, n1), 1.0);
 
-  // FragColor = mix(BlurColor, Color, 1.0 - n1);
+  FragColor = mix(BlurColor, Color, 1.0 - n);
   // FragColor = vec4(blendScreen(FragColor.xyz, vec3(n * .3)), 1.0);
 
-  FragColor = Color;
+  // FragColor = Color;
 
   // debug n
   // FragColor = vec4(1.0) * n;
