@@ -40,53 +40,6 @@ function mapArrValue(arr, val, max) {
   return ret;
 }
 
-function loadTexture(gl, url) {
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  const level = 0;
-  const internalFormat = gl.RGBA;
-  const width = 1;
-  const height = 1;
-  const border = 0;
-  const srcFormat = gl.RGBA;
-  const srcType = gl.UNSIGNED_BYTE;
-  const pixel = new Uint8Array([0, 0, 255, 255]); // opaque blue
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    level,
-    internalFormat,
-    width,
-    height,
-    border,
-    srcFormat,
-    srcType,
-    pixel
-  );
-
-  const image = new Image();
-  image.onload = function () {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      level,
-      internalFormat,
-      srcFormat,
-      srcType,
-      image
-    );
-
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(
-      gl.TEXTURE_2D,
-      gl.TEXTURE_MIN_FILTER,
-      gl.LINEAR_MIPMAP_LINEAR
-    );
-  };
-  image.src = url;
-
-  return texture;
-}
-
 function isPowerOf2(value) {
   return (value & (value - 1)) == 0;
 }
@@ -239,38 +192,12 @@ class Animation {
 
     this.texture = new Texture(gl).fromUrl("img/bg1.jpg");
 
-    // this.texture = loadTexture(gl, "img/bg1.jpg");
-
-    this.texture2 = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, this.texture2);
-
-    // gl.getTexParameter(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER);
-    const level = 0;
-    const internalFormat = gl.RGBA;
-    const border = 0;
-    const format = gl.RGBA;
-    const type = gl.UNSIGNED_BYTE;
-    const data = null;
-
     this.targetTextureWidth = 256;
     this.targetTextureHeight = 256;
-
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      level,
-      internalFormat,
+    this.texture2 = new Texture(gl).empty(
       this.targetTextureWidth,
-      this.targetTextureHeight,
-      border,
-      format,
-      type,
-      data
+      this.targetTextureHeight
     );
-
-    // set the filtering so we don't need mips
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     // Create and bind the framebuffer
     this.frameBuffer = gl.createFramebuffer();
@@ -283,7 +210,7 @@ class Animation {
       attachmentPoint,
       gl.TEXTURE_2D,
       this.texture2,
-      level
+      0
     );
   }
 

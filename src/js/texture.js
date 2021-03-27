@@ -1,42 +1,44 @@
 export default class Texture {
   constructor(gl) {
     this.gl = gl;
+    this.level = 0;
+    this.internalFormat = this.gl.RGBA;
+    this.border = 0;
+    this.format = this.gl.RGBA;
+    this.srcFormat = this.gl.RGBA;
+    this.type = this.gl.UNSIGNED_BYTE;
+    this.data = null;
+    this.srcType = this.gl.UNSIGNED_BYTE;
+    this.pixel = new Uint8Array([106, 163, 149, 255]);
+    this.texture = null;
   }
 
   fromUrl(url) {
     const gl = this.gl;
 
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    const level = 0;
-    const internalFormat = gl.RGBA;
-    const width = 1;
-    const height = 1;
-    const border = 0;
-    const srcFormat = gl.RGBA;
-    const srcType = gl.UNSIGNED_BYTE;
-    const pixel = new Uint8Array([106, 163, 149, 255]); // opaque blue
+    this.texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texImage2D(
       gl.TEXTURE_2D,
-      level,
-      internalFormat,
-      width,
-      height,
-      border,
-      srcFormat,
-      srcType,
-      pixel
+      this.level,
+      this.internalFormat,
+      this.width,
+      this.height,
+      this.border,
+      this.srcFormat,
+      this.srcType,
+      this.pixel
     );
 
     const image = new Image();
-    image.onload = function () {
-      gl.bindTexture(gl.TEXTURE_2D, texture);
+    image.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
       gl.texImage2D(
         gl.TEXTURE_2D,
-        level,
-        internalFormat,
-        srcFormat,
-        srcType,
+        this.level,
+        this.internalFormat,
+        this.srcFormat,
+        this.srcType,
         image
       );
 
@@ -49,57 +51,37 @@ export default class Texture {
     };
     image.src = url;
 
-    this.texture = texture;
     return this.texture;
   }
 
-  empty() {
+  empty(targetTextureWidth, targetTextureHeight) {
     const gl = this.gl;
 
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    const level = 0;
-    const internalFormat = gl.RGBA;
-    const width = 1;
-    const height = 1;
-    const border = 0;
-    const srcFormat = gl.RGBA;
-    const srcType = gl.UNSIGNED_BYTE;
-    const pixel = new Uint8Array([106, 163, 149, 255]); // opaque blue
+    this.texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+
+    this.data = null;
+
+    this.targetTextureWidth = targetTextureWidth;
+    this.targetTextureHeight = targetTextureHeight;
+
     gl.texImage2D(
       gl.TEXTURE_2D,
-      level,
-      internalFormat,
-      width,
-      height,
-      border,
-      srcFormat,
-      srcType,
-      pixel
+      this.level,
+      this.internalFormat,
+      this.targetTextureWidth,
+      this.targetTextureHeight,
+      this.border,
+      this.format,
+      this.type,
+      this.data
     );
 
-    const image = new Image();
-    image.onload = function () {
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        level,
-        internalFormat,
-        srcFormat,
-        srcType,
-        image
-      );
+    // set the filtering so we don't need mips
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-      gl.generateMipmap(gl.TEXTURE_2D);
-      gl.texParameteri(
-        gl.TEXTURE_2D,
-        gl.TEXTURE_MIN_FILTER,
-        gl.LINEAR_MIPMAP_LINEAR
-      );
-    };
-    image.src = url;
-
-    this.texture = texture;
     return this.texture;
   }
 }
