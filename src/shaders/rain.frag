@@ -42,7 +42,7 @@ void main()
   float n1 = N21(id + vec2(7.0, 23.0));
 
   t = t * n * .05 + n * .3;
-  float shit = abs(sin(7.0 * t + sin(2.1 * n - sin(7.17 * t))));
+  float shit = abs(sin(3.0 * t + sin(2.1 * n - sin(7.0 * t))));
   n *= clamp((-(shit) + 0.1) * 10.0, 0.0, 1.0);
   n1 *= clamp((-(shit -7.0) + 0.1) * 10.0, 0.0, 1.0);
   
@@ -53,6 +53,9 @@ void main()
   
   vec2 offs = vec2(1.0 / divide) * clamp(floor(5.0 * n), -1.0, 1.0);
   vec4 Color = texture(u_Sampler, sampleuv + offs);
+
+  float shiftsource =  N21(floor(uv1 - clamp(floor(5.0 * n), -1.0, 1.0)));
+  shiftsource = clamp(floor(5.0 * shiftsource), -1.0, 1.0);
 
   
   float Directions = 8.0;
@@ -73,11 +76,11 @@ void main()
   // try screen, screen suck
   // FragColor = vec4(blendScreen(Color.xyz, BlurColor.xyz, n1), 1.0);
 
-  FragColor = mix(BlurColor, Color, 1.0 - n);
+  FragColor = mix(BlurColor, Color, 1.0 - n)*shiftsource;
   // FragColor = vec4(blendScreen(FragColor.xyz, vec3(n * .3)), 1.0);
 
   // FragColor = Color;
 
   // debug n
-  // FragColor = vec4(1.0) * n;
+  // FragColor = vec4(1.0) * shiftsource;
 }
