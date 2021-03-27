@@ -13,6 +13,5 @@ void main() {
   gl_Position = vec4(aPos, .0f, 1.0f);
   vec4 uv_out =  gl_Position * inverse(u_MVP);
   uv = uv_out.xy;
-  // mouse = (inverse(u_MVP) * vec4(u_Mouse, .0f, 1.0f)).xy;
   mouse = u_Mouse.xy;
 }

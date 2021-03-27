@@ -1,2 +1,2 @@
-require('css/styles.scss');
-require('js/script.js');
+require("css/styles.scss");
+require("js/animation.js");

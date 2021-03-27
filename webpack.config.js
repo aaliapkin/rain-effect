@@ -33,6 +33,6 @@ module.exports = {
   devServer: {
     contentBase: path.resolve(__dirname, "./dist"),
   },
-  devtool: "source-map",
+  devtool: "cheap-module-source-map",
   plugins: plugins,
 };
