@@ -8,13 +8,12 @@ precision highp float;
 out vec4 FragColor;
 in vec2 uv;
 
+uniform vec4 u_bounds;
 uniform float u_time;
 uniform float u_Size;
 uniform sampler2D u_Sampler;
-uniform sampler2D u_SamplerH;
-uniform float u_MouseInt;
 uniform float u_asp;
-uniform vec2 u_Mouse;
+uniform float u_Mouse;
 
 $N21
 $blendScreen
