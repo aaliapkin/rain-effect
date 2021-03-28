@@ -9,3 +9,8 @@ vec3 blendScreen(vec3 base, vec3 blend) {
 vec3 blendScreen(vec3 base, vec3 blend, float opacity) {
 	return (blendScreen(base, blend) * opacity + base * (1.0 - opacity));
 }
+
+vec4 blendScreen(vec4 base, vec4 blend, float opacity) {
+	return vec4(blendScreen(base.xyz, blend.xyz, opacity), 1.0);
+}
+

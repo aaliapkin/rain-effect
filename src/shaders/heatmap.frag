@@ -14,7 +14,7 @@ uniform float u_asp;
 uniform vec2 u_Mouse;
 
 $N21
-$blendScreen
+$sampleBlur
 
 void main()
 {
@@ -24,27 +24,12 @@ void main()
   vec2 uv1 = uv;
   uv1.y = 1.0 - uv1.y;
 
-
-  float Directions = 8.0;
-  float Quality = 2.0; 
-  float Size = 1.0;
-  vec2 Radius = vec2(.01);
-  float mip = 0.0;
-
-  vec4 BlurColor = texture(u_Sampler, uv1, mip);
-
-  for(float d = 0.0; d < _2PI; d += _2PI/Directions) {
-    for(float i = 1.0 / Quality; i <= 1.0; i += 1.0 / Quality) {
-      BlurColor += texture(u_Sampler, uv1 + vec2(cos(d), sin(d)) * Radius * i, mip);		
-    }
-  }
-  BlurColor /= Quality * Directions;
-
-  vec4 Color = texture(u_Sampler, uv1);
+  // Sampler UV Directions Quality Size Radius Mip
+  vec4 BlurColor = SampleBlur(u_Sampler, uv1, 6.0, 2.0, 0.5, vec2(0.01), 2.0);
 
   float mouseCircle = S(0.3f, 0.0f, length((mouse - uv1) * asp )) ;
 
-  FragColor = BlurColor + 0.06 * mouseCircle;
-  FragColor *= 0.93;
+  FragColor = BlurColor + 0.03 * mouseCircle;
+  FragColor *= 0.918;
   FragColor = clamp(FragColor, 0.0, 1.0);
 }
