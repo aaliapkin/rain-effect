@@ -32,4 +32,5 @@ void main()
   }
 
   FragColor = texture(u_Sampler, sampleuv);
+  FragColor = vec4(1.0 * (sin(t)/2.0 + 0.5), 0.0, 1.0, 1.0);
 }

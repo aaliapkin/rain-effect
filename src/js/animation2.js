@@ -8,42 +8,6 @@ import fragmentShaderSource1 from "shaders/heatmap.frag";
 
 import vertexShaderSource2 from "shaders/rain.vert";
 import fragmentShaderSource2 from "shaders/rain.frag";
-
-const config = {
-  shut: true,
-};
-
-function distance(d1, d2 = { x: 0, y: 0 }) {
-  return Math.sqrt((d2.x - d1.x) ** 2 + (d2.y - d1.y) ** 2);
-}
-
-function getVectorTo(origin, target) {
-  const dist = distance(origin, target);
-  if (dist === 0) {
-    return { x: 0, y: 0 };
-  }
-  return {
-    x: (target.x - origin.x) / dist,
-    y: (target.y - origin.y) / dist,
-  };
-}
-
-function mapArrValue(arr, val, max) {
-  let interval = max / (arr.length - 1);
-  let i = Math.floor(val / interval);
-  let w = (val % interval) / interval;
-  let smoothstep = 3 * w ** 2 - 2 * w ** 3;
-  let ret = arr[i] * (1 - smoothstep) + arr[i + 1] * smoothstep;
-  if (ret === NaN) {
-    debugger;
-  }
-  return ret;
-}
-
-function isPowerOf2(value) {
-  return (value & (value - 1)) == 0;
-}
-
 class Animation {
   cnv = null;
   gl = null;
@@ -56,12 +20,12 @@ class Animation {
 
   proj = [];
 
-  interval = 50;
   psize = 5.0;
   startTime = 0.0;
   time = 0.0;
   texture = null;
   texture2 = null;
+  texture3 = null;
 
   uvmouse = {
     x: 0.0,
@@ -72,30 +36,6 @@ class Animation {
     y: 0.0,
   };
   mouseintensity = 0.0;
-
-  // gl stuff
-
-  program1 = null;
-  program2 = null;
-
-  // Uniforms
-
-  a_positionLocation = null;
-  u_MVP = null;
-  u_lBounds = null;
-  u_time = null;
-  u_Size = null;
-  u_Sampler = null;
-  u_Mouse = null;
-  u_MouseInt = null;
-  u_asp = null;
-  u_SamplerH = null;
-
-  // shader2
-  a_positionLocation2 = null;
-  u_Sampler2 = null;
-  u_Mouse2 = null;
-  frameBuffer = null;
 
   init() {
     this.createCanvas();
@@ -192,9 +132,14 @@ class Animation {
 
     this.texture = new Texture(gl).fromUrl("img/bg1.jpg");
 
-    this.targetTextureWidth = 256;
-    this.targetTextureHeight = 256;
+    this.targetTextureWidth = this.size.w;
+    this.targetTextureHeight = this.size.h;
     this.texture2 = new Texture(gl).empty(
+      this.targetTextureWidth,
+      this.targetTextureHeight
+    );
+
+    this.texture3 = new Texture(gl).empty(
       this.targetTextureWidth,
       this.targetTextureHeight
     );
@@ -226,7 +171,6 @@ class Animation {
 
   drawImage() {
     const gl = this.gl;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     this.rainShader.useProgram();
     this.rainShader.setUniform("u_MVP", this.proj);
@@ -237,8 +181,14 @@ class Animation {
     this.rainShader.setUniform("u_asp", this.size.w / this.size.h);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture3);
     this.rainShader.setUniform("u_Sampler", 0);
+
+    // gl.activeTexture(gl.TEXTURE1);
+    // gl.bindTexture(gl.TEXTURE_2D, this.texture3);
+    // this.rainShader.setUniform("u_SamplerH", 1);
+
+    this.gl.viewport(0, 0, this.size.w, this.size.h);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -250,18 +200,39 @@ class Animation {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
 
+    // gl.activeTexture(gl.TEXTURE0);
+    // gl.bindTexture(gl.TEXTURE_2D, this.texture2);
+    const attachmentPoint = gl.COLOR_ATTACHMENT0;
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      attachmentPoint,
+      gl.TEXTURE_2D,
+      this.texture2,
+      0
+    );
+
     this.heatmapShader.useProgram();
     this.heatmapShader.setUniform("u_Mouse2", this.uvmouse.x, this.uvmouse.y);
 
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    // this.heatmapShader.setUniform("u_Sampler2", 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture3);
+    this.heatmapShader.setUniform("u_Sampler", 1);
 
     gl.viewport(0, 0, this.targetTextureWidth, this.targetTextureHeight);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-    gl.bindTexture(gl.TEXTURE_2D, null);
+    // gl.activeTexture(gl.TEXTURE0);
+    // gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.swapTextures();
+  }
+
+  swapTextures() {
+    const tmp = this.texture2;
+    this.texture2 = this.texture3;
+    this.texture3 = tmp;
   }
 
   setCanvasSize() {
@@ -311,9 +282,7 @@ class Animation {
         const avg = sum / this.fpsHistory.length || 0;
         this.fps = avg;
         this.fpsHistory = [];
-        if (config.shut !== true) {
-          console.log("Animation fps ", Math.round(this.fps, 0));
-        }
+        // console.log("Animation fps ", Math.round(this.fps, 0));
       }
     }
   }

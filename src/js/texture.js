@@ -72,8 +72,8 @@ export default class Texture {
       this.targetTextureWidth,
       this.targetTextureHeight,
       this.border,
-      this.format,
-      this.type,
+      this.srcFormat,
+      this.srcType,
       this.data
     );
 
