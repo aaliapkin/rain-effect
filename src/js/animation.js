@@ -1,119 +1,16 @@
 import mouse from "js/mouse";
 import { mapclamp } from "js/lib";
+import Shader from "js/shader";
+import Texture from "js/texture";
 
-import vertexShaderSource from "shaders/rain.vert";
-import fragmentShaderSource from "shaders/rain.frag";
+import vertexShaderSource1 from "shaders/rain.vert";
+import fragmentShaderSource1 from "shaders/heatmap.frag";
 
-const config = {
-  shut: true,
-};
-
-function distance(d1, d2 = { x: 0, y: 0 }) {
-  return Math.sqrt((d2.x - d1.x) ** 2 + (d2.y - d1.y) ** 2);
-}
-
-function getVectorTo(origin, target) {
-  const dist = distance(origin, target);
-  if (dist === 0) {
-    return { x: 0, y: 0 };
-  }
-  return {
-    x: (target.x - origin.x) / dist,
-    y: (target.y - origin.y) / dist,
-  };
-}
-
-function mapArrValue(arr, val, max) {
-  let interval = max / (arr.length - 1);
-  let i = Math.floor(val / interval);
-  let w = (val % interval) / interval;
-  let smoothstep = 3 * w ** 2 - 2 * w ** 3;
-  let ret = arr[i] * (1 - smoothstep) + arr[i + 1] * smoothstep;
-  if (ret === NaN) {
-    debugger;
-  }
-  return ret;
-}
-
-//
-// Initialize a texture and load an image.
-// When the image finished loading copy it into the texture.
-//
-function loadTexture(gl, url) {
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-
-  // Because images have to be downloaded over the internet
-  // they might take a moment until they are ready.
-  // Until then put a single pixel in the texture so we can
-  // use it immediately. When the image has finished downloading
-  // we'll update the texture with the contents of the image.
-  const level = 0;
-  const internalFormat = gl.RGBA;
-  const width = 1;
-  const height = 1;
-  const border = 0;
-  const srcFormat = gl.RGBA;
-  const srcType = gl.UNSIGNED_BYTE;
-  const pixel = new Uint8Array([0, 0, 255, 255]); // opaque blue
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    level,
-    internalFormat,
-    width,
-    height,
-    border,
-    srcFormat,
-    srcType,
-    pixel
-  );
-
-  const image = new Image();
-  image.onload = function () {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      level,
-      internalFormat,
-      srcFormat,
-      srcType,
-      image
-    );
-
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(
-      gl.TEXTURE_2D,
-      gl.TEXTURE_MIN_FILTER,
-      gl.LINEAR_MIPMAP_LINEAR
-    );
-
-    // WebGL1 has different requirements for power of 2 images
-    // vs non power of 2 images so check if the image is a
-    // power of 2 in both dimensions.
-    // if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-    //   // Yes, it's a power of 2. Generate mips.
-    //   gl.generateMipmap(gl.TEXTURE_2D);
-    // } else {
-    //   // No, it's not a power of 2. Turn off mips and set
-    //   // wrapping to clamp to edge
-    //   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    //   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    //   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    //   gl.generateMipmap(gl.TEXTURE_2D);
-    // }
-  };
-  image.src = url;
-
-  return texture;
-}
-
-function isPowerOf2(value) {
-  return (value & (value - 1)) == 0;
-}
-
+import vertexShaderSource2 from "shaders/rain.vert";
+import fragmentShaderSource2 from "shaders/rain.frag";
 class Animation {
   cnv = null;
-  ctx = null;
+  gl = null;
   size = { w: 0, h: 0, cx: 0, cy: 0 };
 
   lastFrameTime = 0;
@@ -121,44 +18,14 @@ class Animation {
   fps = 60;
   fpsHistory = [];
 
-  zoom_center = [0.0, 0.0];
-  target_zoom_center = [0.0, 0.0];
-  zoom_size = 4.0;
-  stop_zooming = true;
-  zoom_factor = 1.0;
-  max_iterations = 500;
+  proj = [];
 
-  proj = [
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-  ];
-
-  xmin = -2.0;
-  xmax = 1.0;
-  ymin = -1.5;
-  ymax = 1.5;
-
-  zoom = true;
-  zoomInterval = undefined;
-  interval = 50;
   psize = 5.0;
   startTime = 0.0;
   time = 0.0;
   texture = null;
+  texture2 = null;
+  texture3 = null;
 
   uvmouse = {
     x: 0.0,
@@ -169,17 +36,6 @@ class Animation {
     y: 0.0,
   };
   mouseintensity = 0.0;
-
-  // Uniforms
-
-  u_MVP = null;
-  u_lBounds = null;
-  u_time = null;
-  u_Size = null;
-  u_Sampler = null;
-  u_Mouse = null;
-  u_MouseInt = null;
-  u_asp = null;
 
   init() {
     this.createCanvas();
@@ -208,49 +64,21 @@ class Animation {
     ];
   }
 
-  createProgram() {
-    gl = this.ctx;
-
-    const vertShader = gl.createShader(gl.VERTEX_SHADER);
-    const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-
-    const vertSrc = gl.shaderSource(vertShader, vertexShaderSource);
-    const fragSrc = gl.shaderSource(fragShader, fragmentShaderSource);
-
-    gl.compileShader(vertShader, vertSrc);
-    if (!gl.getShaderParameter(vertShader, gl.COMPILE_STATUS)) {
-      alert("Error compiling vertex shader");
-      console.log(gl.getShaderInfoLog(vertShader));
-    }
-
-    gl.compileShader(fragShader, fragSrc);
-    if (!gl.getShaderParameter(fragShader, gl.COMPILE_STATUS)) {
-      alert("Error compiling fragment shader");
-      console.log(gl.getShaderInfoLog(fragShader));
-    }
-
-    const program = gl.createProgram();
-    gl.attachShader(program, vertShader);
-    gl.attachShader(program, fragShader);
-    gl.linkProgram(program);
-
-    gl.validateProgram(program);
-    if (!gl.getProgramParameter(program, gl.VALIDATE_STATUS)) {
-      console.log("Error validating program ", gl.getProgramInfoLog(program));
-      return;
-    }
-    return program;
-  }
-
   createCanvas() {
     this.cnv = document.createElement(`canvas`);
     document.body.appendChild(this.cnv);
     this.cnv.id = "canvas";
 
-    const gl = (this.ctx = this.cnv.getContext("webgl2"));
+    const gl = (this.gl = this.cnv.getContext("webgl2"));
 
-    const program = this.createProgram();
-    gl.useProgram(program);
+    this.rainShader = new Shader(gl);
+    this.rainShader.createProgram(vertexShaderSource2, fragmentShaderSource2);
+
+    this.heatmapShader = new Shader(gl);
+    this.heatmapShader.createProgram(
+      vertexShaderSource1,
+      fragmentShaderSource1
+    );
 
     const vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -279,18 +107,24 @@ class Animation {
       gl.STATIC_DRAW
     );
 
-    const position_attrib_location = gl.getAttribLocation(program, "aPos");
-    gl.enableVertexAttribArray(position_attrib_location);
-    gl.vertexAttribPointer(position_attrib_location, 2, gl.FLOAT, false, 0, 0);
+    this.heatmapShader.useProgram();
+    this.heatmapShader.setPositions("aPos");
+    this.heatmapShader.addUniform("u_Sampler", "1i");
+    this.heatmapShader.addUniform("u_Mouse", "2f");
+    this.heatmapShader.addUniform("u_time", "1f");
+    this.heatmapShader.addUniform("u_MVP", "4fv");
+    this.heatmapShader.addUniform("u_asp", "1f");
 
-    this.u_MVP = gl.getUniformLocation(program, "u_MVP");
-    this.u_lBounds = gl.getUniformLocation(program, "u_bounds");
-    this.u_time = gl.getUniformLocation(program, "u_time");
-    this.u_Size = gl.getUniformLocation(program, "u_Size");
-    this.u_Sampler = gl.getUniformLocation(program, "u_Sampler");
-    this.u_Mouse = gl.getUniformLocation(program, "u_Mouse");
-    this.u_MouseInt = gl.getUniformLocation(program, "u_MouseInt");
-    this.u_asp = gl.getUniformLocation(program, "u_asp");
+    this.rainShader.useProgram();
+    this.rainShader.setPositions("aPos");
+    this.rainShader.addUniform("u_MVP", "4fv");
+    this.rainShader.addUniform("u_time", "1f");
+    this.rainShader.addUniform("u_Size", "1f");
+    this.rainShader.addUniform("u_Sampler", "1i");
+    this.rainShader.addUniform("u_SamplerH", "1i");
+    this.rainShader.addUniform("u_Mouse", "2f");
+    this.rainShader.addUniform("u_MouseInt", "1f");
+    this.rainShader.addUniform("u_asp", "1f");
 
     this.setCanvasSize();
     window.addEventListener(`resize`, () => {
@@ -299,9 +133,116 @@ class Animation {
 
     this.startTime = Date.now();
 
-    this.texture = loadTexture(gl, "img/bg1.jpg");
+    this.texture = new Texture(gl).fromUrl("img/bg1.jpg");
+
+    // TODO: should be 1 dimentional
+    this.targetTextureWidth = this.size.w;
+    this.targetTextureHeight = this.size.h;
+    this.texture2 = new Texture(gl).empty(
+      this.targetTextureWidth,
+      this.targetTextureHeight
+    );
+
+    this.texture3 = new Texture(gl).empty(
+      this.targetTextureWidth,
+      this.targetTextureHeight
+    );
+
+    // Create and bind the framebuffer
+    this.frameBuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+
+    // attach the texture as the first color attachment
+    const attachmentPoint = gl.COLOR_ATTACHMENT0;
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      attachmentPoint,
+      gl.TEXTURE_2D,
+      this.texture2,
+      0
+    );
+  }
+
+  updateCanvas() {
+    this.time = (Date.now() - this.startTime) / 1000.0;
+
+    this.calculateMVP();
+    this.getMouse();
+
+    this.drawHeatMap();
+    this.drawImage();
+    this.swapTextures();
+  }
+
+  drawImage() {
+    const gl = this.gl;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    this.rainShader.useProgram();
+    this.rainShader.setUniform("u_MVP", this.proj);
+    this.rainShader.setUniform("u_time", this.time);
+    this.rainShader.setUniform("u_Size", this.psize);
+    this.rainShader.setUniform("u_Mouse", this.uvmouse.x, this.uvmouse.y);
+    this.rainShader.setUniform("u_MouseInt", this.mouseintensity);
+    this.rainShader.setUniform("u_asp", this.size.w / this.size.h);
+
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    this.rainShader.setUniform("u_Sampler", 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture2);
+    this.rainShader.setUniform("u_SamplerH", 1);
+
+    this.gl.viewport(0, 0, this.size.w, this.size.h);
+
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+  }
+
+  drawHeatMap() {
+    const gl = this.gl;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture2);
+    const attachmentPoint = gl.COLOR_ATTACHMENT0;
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      attachmentPoint,
+      gl.TEXTURE_2D,
+      this.texture2,
+      0
+    );
+
+    this.heatmapShader.useProgram();
+    this.heatmapShader.setUniform("u_Mouse", this.uvmouse.x, this.uvmouse.y);
+    this.heatmapShader.setUniform("u_time", this.time);
+    this.heatmapShader.setUniform("u_MVP", this.proj);
+    this.heatmapShader.setUniform("u_asp", this.size.w / this.size.h);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture3);
+    this.heatmapShader.setUniform("u_Sampler", 1);
+
+    gl.viewport(0, 0, this.targetTextureWidth, this.targetTextureHeight);
+
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+
+    // gl.activeTexture(gl.TEXTURE0);
+    // gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  swapTextures() {
+    const tmp = this.texture2;
+    this.texture2 = this.texture3;
+    this.texture3 = tmp;
   }
 
   setCanvasSize() {
@@ -309,111 +250,25 @@ class Animation {
     this.size.h = this.cnv.height = window.innerHeight;
     this.size.cx = this.size.w / 2;
     this.size.cy = this.size.h / 2;
-    this.ctx.viewport(0, 0, this.size.w, this.size.h);
+    this.gl.viewport(0, 0, this.size.w, this.size.h);
   }
 
   getMouse() {
     let x = mouse.x;
     let y = mouse.y;
-
-    // console.log(this.mouseintensity);
-
-    if (isFinite(x) && isFinite(y)) {
+    // TODO: tweak
+    if (x > 0 && x < this.size.w && y > 0 && y < this.size.h) {
       this.uvmouse = {
         x: mapclamp(x, 0, this.size.w, 0, 1),
         y: mapclamp(y, 0, this.size.h, 0, 1),
       };
-
-      const dx = x - this.lastmousepos.x;
-      const dy = y - this.lastmousepos.y;
-      const d = dx * dx + dy * dy;
-
-      this.lastmousepos = {
-        ...{ x, y },
-      };
-
-      if (d > 0) {
-        this.mouseintensity -= mapclamp(d, 0, 2000, 0.0, 0.1);
-        this.mouseintensity = this.mouseintensity < 0 ? 0 : this.mouseintensity;
-        return;
-      }
+      return;
     }
-    this.mouseintensity += 0.01;
-    this.mouseintensity = this.mouseintensity > 1 ? 1 : this.mouseintensity;
+    this.uvmouse = {
+      x: -1,
+      y: -1,
+    };
   }
-
-  updateCanvas() {
-    const gl = this.ctx;
-
-    this.time = (Date.now() - this.startTime) / 1000.0;
-
-    this.calculateMVP();
-
-    gl.uniformMatrix4fv(this.u_MVP, false, this.proj);
-    gl.uniform4f(this.u_lBounds, this.xmin, this.xmax, this.ymin, this.ymax);
-    gl.uniform1f(this.u_time, this.time);
-    gl.uniform1f(this.u_Size, this.psize);
-
-    this.getMouse();
-    gl.uniform2f(this.u_Mouse, this.uvmouse.x, this.uvmouse.y);
-    gl.uniform1f(this.u_MouseInt, this.mouseintensity);
-
-    gl.uniform1f(this.u_asp, this.size.w / this.size.h);
-    gl.uniform1i(this.u_Sampler, 0);
-
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-  }
-
-  onmousedown = (e) => {
-    e.preventDefault();
-
-    if (e.button === 0) {
-      this.zoom = true;
-    }
-
-    if (e.button === 2) {
-      this.zoom = false;
-    }
-
-    if (!this.zoomInterval) {
-      this.zoomInterval = setInterval(this.onZooming, this.interval);
-    }
-  };
-
-  onZooming = () => {
-    let factor = 1;
-    let step = Math.max(this.currentFrameTime, this.interval) / 1000.0;
-
-    if (this.zoom === true) {
-      factor -= step;
-    }
-
-    if (this.zoom === false) {
-      factor += step;
-    }
-
-    let xpos = mapclamp(mouse.x, 0, this.size.w, this.xmin, this.xmax);
-    let ypos = mapclamp(mouse.y, 0, this.size.h, this.ymax, this.ymin);
-
-    let offsetx = xpos * (1 - factor);
-    let offsety = ypos * (1 - factor);
-
-    this.xmin = offsetx + this.xmin * factor;
-    this.xmax = offsetx + this.xmax * factor;
-    this.ymin = offsety + this.ymin * factor;
-    this.ymax = offsety + this.ymax * factor;
-  };
-
-  clearZoom = (e) => {
-    clearInterval(this.zoomInterval);
-    this.zoomInterval = undefined;
-  };
-
-  oncontextmenu = (e) => {
-    e.preventDefault();
-  };
 
   calculateFps() {
     if (this.lastFrameTime == 0) {
@@ -427,9 +282,7 @@ class Animation {
         const avg = sum / this.fpsHistory.length || 0;
         this.fps = avg;
         this.fpsHistory = [];
-        if (config.shut !== true) {
-          console.log("Animation fps ", Math.round(this.fps, 0));
-        }
+        // console.log("Animation fps ", Math.round(this.fps, 0));
       }
     }
   }
