@@ -72,12 +72,12 @@ class Animation {
     const gl = (this.gl = this.cnv.getContext("webgl2"));
 
     this.rainShader = new Shader(gl);
-    this.rainShader.createProgram(vertexShaderSource1, fragmentShaderSource1);
+    this.rainShader.createProgram(vertexShaderSource2, fragmentShaderSource2);
 
     this.heatmapShader = new Shader(gl);
     this.heatmapShader.createProgram(
-      vertexShaderSource2,
-      fragmentShaderSource2
+      vertexShaderSource1,
+      fragmentShaderSource1
     );
 
     const vertexBuffer = gl.createBuffer();
@@ -111,6 +111,7 @@ class Animation {
     this.heatmapShader.setPositions("aPos");
     this.heatmapShader.addUniform("u_Sampler", "1i");
     this.heatmapShader.addUniform("u_Mouse", "2f");
+    this.heatmapShader.addUniform("u_time", "1f");
 
     this.rainShader.useProgram();
     this.rainShader.setPositions("aPos");
@@ -172,6 +173,8 @@ class Animation {
   drawImage() {
     const gl = this.gl;
 
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
     this.rainShader.useProgram();
     this.rainShader.setUniform("u_MVP", this.proj);
     this.rainShader.setUniform("u_time", this.time);
@@ -181,12 +184,12 @@ class Animation {
     this.rainShader.setUniform("u_asp", this.size.w / this.size.h);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture3);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
     this.rainShader.setUniform("u_Sampler", 0);
 
-    // gl.activeTexture(gl.TEXTURE1);
-    // gl.bindTexture(gl.TEXTURE_2D, this.texture3);
-    // this.rainShader.setUniform("u_SamplerH", 1);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture2);
+    this.rainShader.setUniform("u_SamplerH", 1);
 
     this.gl.viewport(0, 0, this.size.w, this.size.h);
 
@@ -200,33 +203,36 @@ class Animation {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
 
-    // gl.activeTexture(gl.TEXTURE0);
-    // gl.bindTexture(gl.TEXTURE_2D, this.texture2);
-    const attachmentPoint = gl.COLOR_ATTACHMENT0;
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      attachmentPoint,
-      gl.TEXTURE_2D,
-      this.texture2,
-      0
-    );
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture2);
+    // const attachmentPoint = gl.COLOR_ATTACHMENT0;
+    // gl.framebufferTexture2D(
+    //   gl.FRAMEBUFFER,
+    //   attachmentPoint,
+    //   gl.TEXTURE_2D,
+    //   this.texture2,
+    //   0
+    // );
 
     this.heatmapShader.useProgram();
     this.heatmapShader.setUniform("u_Mouse2", this.uvmouse.x, this.uvmouse.y);
+    this.heatmapShader.setUniform("u_time", this.time);
 
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture3);
-    this.heatmapShader.setUniform("u_Sampler", 1);
+    // gl.activeTexture(gl.TEXTURE1);
+    // gl.bindTexture(gl.TEXTURE_2D, this.texture3);
+    // this.heatmapShader.setUniform("u_Sampler", 1);
 
     gl.viewport(0, 0, this.targetTextureWidth, this.targetTextureHeight);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+
     // gl.activeTexture(gl.TEXTURE0);
     // gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    this.swapTextures();
+
+    // this.swapTextures();
   }
 
   swapTextures() {

@@ -32,5 +32,9 @@ void main()
     sampleuv = (uv - vec2(0.5)) * vec2(imgasp, 1.0) + vec2(0.5);
   }
 
-  FragColor = texture(u_SamplerH, sampleuv);
+  vec4 Color = texture(u_Sampler, sampleuv);
+  vec4 BaseColor = texture(u_SamplerH, sampleuv);
+  // vec4 BaseColor = vec4(1.0, 1.0, 0.0, 1.0);
+
+  FragColor = mix(Color, BaseColor, 0.5);
 }
