@@ -112,6 +112,8 @@ class Animation {
     this.heatmapShader.addUniform("u_Sampler", "1i");
     this.heatmapShader.addUniform("u_Mouse", "2f");
     this.heatmapShader.addUniform("u_time", "1f");
+    this.heatmapShader.addUniform("u_MVP", "4fv");
+    this.heatmapShader.addUniform("u_asp", "1f");
 
     this.rainShader.useProgram();
     this.rainShader.setPositions("aPos");
@@ -133,6 +135,7 @@ class Animation {
 
     this.texture = new Texture(gl).fromUrl("img/bg1.jpg");
 
+    // TODO: should be 1 dimentional
     this.targetTextureWidth = this.size.w;
     this.targetTextureHeight = this.size.h;
     this.texture2 = new Texture(gl).empty(
@@ -168,6 +171,7 @@ class Animation {
 
     this.drawHeatMap();
     this.drawImage();
+    this.swapTextures();
   }
 
   drawImage() {
@@ -205,22 +209,24 @@ class Animation {
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture2);
-    // const attachmentPoint = gl.COLOR_ATTACHMENT0;
-    // gl.framebufferTexture2D(
-    //   gl.FRAMEBUFFER,
-    //   attachmentPoint,
-    //   gl.TEXTURE_2D,
-    //   this.texture2,
-    //   0
-    // );
+    const attachmentPoint = gl.COLOR_ATTACHMENT0;
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      attachmentPoint,
+      gl.TEXTURE_2D,
+      this.texture2,
+      0
+    );
 
     this.heatmapShader.useProgram();
-    this.heatmapShader.setUniform("u_Mouse2", this.uvmouse.x, this.uvmouse.y);
+    this.heatmapShader.setUniform("u_Mouse", this.uvmouse.x, this.uvmouse.y);
     this.heatmapShader.setUniform("u_time", this.time);
+    this.heatmapShader.setUniform("u_MVP", this.proj);
+    this.heatmapShader.setUniform("u_asp", this.size.w / this.size.h);
 
-    // gl.activeTexture(gl.TEXTURE1);
-    // gl.bindTexture(gl.TEXTURE_2D, this.texture3);
-    // this.heatmapShader.setUniform("u_Sampler", 1);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture3);
+    this.heatmapShader.setUniform("u_Sampler", 1);
 
     gl.viewport(0, 0, this.targetTextureWidth, this.targetTextureHeight);
 
@@ -231,8 +237,6 @@ class Animation {
     // gl.activeTexture(gl.TEXTURE0);
     // gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    // this.swapTextures();
   }
 
   swapTextures() {
@@ -252,28 +256,18 @@ class Animation {
   getMouse() {
     let x = mouse.x;
     let y = mouse.y;
-    if (isFinite(x) && isFinite(y)) {
+    // TODO: tweak
+    if (x > 0 && x < this.size.w && y > 0 && y < this.size.h) {
       this.uvmouse = {
         x: mapclamp(x, 0, this.size.w, 0, 1),
         y: mapclamp(y, 0, this.size.h, 0, 1),
       };
-
-      const dx = x - this.lastmousepos.x;
-      const dy = y - this.lastmousepos.y;
-      const d = dx * dx + dy * dy;
-
-      this.lastmousepos = {
-        ...{ x, y },
-      };
-
-      if (d > 0) {
-        this.mouseintensity -= mapclamp(d, 0, 2000, 0.0, 0.1);
-        this.mouseintensity = this.mouseintensity < 0 ? 0 : this.mouseintensity;
-        return;
-      }
+      return;
     }
-    this.mouseintensity += 0.01;
-    this.mouseintensity = this.mouseintensity > 1 ? 1 : this.mouseintensity;
+    this.uvmouse = {
+      x: -1,
+      y: -1,
+    };
   }
 
   calculateFps() {
