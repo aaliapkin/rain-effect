@@ -1,4 +1,5 @@
-"use strict";
+import mouse from "js/mouse";
+import { mapclamp } from "js/lib";
 
 import vertexShaderSource from "shaders/rain.vert";
 import fragmentShaderSource from "shaders/rain.frag";
@@ -6,65 +7,6 @@ import fragmentShaderSource from "shaders/rain.frag";
 const config = {
   shut: true,
 };
-
-function hexToRgb(hex) {
-  var bigint = parseInt(hex, 16);
-  var r = (bigint >> 16) & 255;
-  var g = (bigint >> 8) & 255;
-  var b = bigint & 255;
-
-  return r + "," + g + "," + b;
-}
-
-class Mouse {
-  x = undefined;
-  y = undefined;
-  dir = true;
-
-  moveListener = (e) => {
-    this.x = e.x;
-    this.y = e.y;
-  };
-
-  outListener = (e) => {
-    mouse.x = undefined;
-    mouse.y = undefined;
-  };
-
-  clickListener = (e) => {
-    this.dir = !this.dir;
-  };
-
-  init() {
-    window.addEventListener("mousemove", this.moveListener);
-    window.addEventListener("mouseout", this.outListener);
-    window.addEventListener("click", this.clickListener);
-  }
-
-  getDist(point) {
-    if (mouse.x !== undefined) {
-      let mousedist = distance(point, this);
-      return mousedist;
-    }
-    return Infinity;
-  }
-
-  getVectorTo(point) {
-    return getVectorTo(point, this);
-  }
-}
-
-const mouse = new Mouse();
-mouse.init();
-
-function mapclamp(x, in_start, in_end, out_start, out_end) {
-  x = x === undefined ? in_end : x;
-  x = x > in_end ? in_end : x;
-  x = x < in_start ? in_start : x;
-  let out =
-    out_start + ((out_end - out_start) / (in_end - in_start)) * (x - in_start);
-  return out;
-}
 
 function distance(d1, d2 = { x: 0, y: 0 }) {
   return Math.sqrt((d2.x - d1.x) ** 2 + (d2.y - d1.y) ** 2);
@@ -266,12 +208,8 @@ class Animation {
     ];
   }
 
-  createCanvas() {
-    this.cnv = document.createElement(`canvas`);
-    document.body.appendChild(this.cnv);
-    this.cnv.id = "canvas";
-
-    const gl = (this.ctx = this.cnv.getContext("webgl2"));
+  createProgram() {
+    gl = this.ctx;
 
     const vertShader = gl.createShader(gl.VERTEX_SHADER);
     const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -301,7 +239,17 @@ class Animation {
       console.log("Error validating program ", gl.getProgramInfoLog(program));
       return;
     }
+    return program;
+  }
 
+  createCanvas() {
+    this.cnv = document.createElement(`canvas`);
+    document.body.appendChild(this.cnv);
+    this.cnv.id = "canvas";
+
+    const gl = (this.ctx = this.cnv.getContext("webgl2"));
+
+    const program = this.createProgram();
     gl.useProgram(program);
 
     const vertexBuffer = gl.createBuffer();
@@ -351,12 +299,6 @@ class Animation {
 
     this.startTime = Date.now();
 
-    //this.cnv.addEventListener("mousedown", this.onmousedown);
-    //this.cnv.addEventListener("contextmenu", this.onmousedown);
-    //this.cnv.addEventListener("mouseup", this.clearZoom);
-    //this.cnv.addEventListener("mouseleave", this.clearZoom);
-    //this.cnv.addEventListener("mouseout", this.clearZoom);
-
     this.texture = loadTexture(gl, "img/bg1.jpg");
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -391,7 +333,6 @@ class Animation {
       };
 
       if (d > 0) {
-        console.log(Math.floor(d));
         this.mouseintensity -= mapclamp(d, 0, 2000, 0.0, 0.1);
         this.mouseintensity = this.mouseintensity < 0 ? 0 : this.mouseintensity;
         return;
@@ -493,6 +434,7 @@ class Animation {
     }
   }
 
+  // animation loop
   updateAnimation() {
     this.updateCanvas();
     this.calculateFps();
